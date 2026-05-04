@@ -61,3 +61,4 @@ Thumbs.db
 
 # uv
 uv.lock
+/__pycache__

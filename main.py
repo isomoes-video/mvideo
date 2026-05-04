@@ -24,6 +24,37 @@ from loguru import logger
 app = typer.Typer(help="Video Processor for OBS Recordings and Subtitles")
 
 
+def build_subtitle_filter(subtitle_file: str, gpu: bool) -> str:
+    """Build subtitle filter, uploading frames when AMD VAAPI encoding is used."""
+    style = (
+        "FontName=Source Han Sans SC,"
+        "FontSize=20,"
+        "PrimaryColour=&HFFFFFF,"
+        "OutlineColour=&H000000,"
+        "Outline=2,"
+        "Shadow=1,"
+        "Bold=1,"
+        "MarginV=30,"
+        "Alignment=2"
+    )
+    subtitle_filter = f"subtitles={subtitle_file}:force_style='{''.join(style)}'"
+    if gpu:
+        return f"{subtitle_filter},format=nv12,hwupload"
+    return subtitle_filter
+
+
+def gpu_acceleration_args(gpu: bool) -> list[str]:
+    """Return ffmpeg input/global args for AMD GPU acceleration."""
+    return []
+
+
+def video_encoder_args(gpu: bool) -> list[str]:
+    """Return ffmpeg video encoder args for AMD GPU or CPU encoding."""
+    if gpu:
+        return ["-c:v", "h264_vaapi", "-qp", "28"]
+    return ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "28"]
+
+
 def check_dependencies():
     """Check if ffmpeg is installed."""
     if not shutil.which("ffmpeg"):
@@ -531,7 +562,7 @@ def burn_subtitles_func(
         input_file: Path to input video
         subtitle_file: Path to SRT subtitle file
         output_file: Path to output video
-        gpu: Use GPU acceleration (h264_nvenc)
+        gpu: Use AMD GPU acceleration (h264_vaapi)
         start_seconds: Start time in seconds (for trim)
         duration: Duration in seconds (for trim), None means until end
     """
@@ -539,24 +570,13 @@ def burn_subtitles_func(
     if start_seconds > 0 or duration is not None:
         logger.info(f"With trim: start={start_seconds}s, duration={duration}s")
 
-    style = (
-        "FontName=Source Han Sans SC,"
-        "FontSize=20,"
-        "PrimaryColour=&HFFFFFF,"
-        "OutlineColour=&H000000,"
-        "Outline=2,"
-        "Shadow=1,"
-        "Bold=1,"
-        "MarginV=30,"
-        "Alignment=2"
-    )
-
-    vf_filter = f"subtitles={subtitle_file}:force_style='{''.join(style)}'"
+    vf_filter = build_subtitle_filter(subtitle_file, gpu)
 
     # Build ffmpeg command
     # -fflags +genpts regenerates timestamps to fix keyframe alignment issues
     # from stream-copy trimming, ensuring video plays correctly on YouTube
     cmd = ["ffmpeg", "-fflags", "+genpts"]
+    cmd.extend(gpu_acceleration_args(gpu))
 
     # Add trim start time before input (fast seek)
     if start_seconds > 0:
@@ -568,10 +588,7 @@ def burn_subtitles_func(
     if duration is not None:
         cmd.extend(["-t", str(duration)])
 
-    if gpu:
-        cmd.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "28"])
-    else:
-        cmd.extend(["-c:v", "libx264", "-preset", "ultrafast", "-crf", "28"])
+    cmd.extend(video_encoder_args(gpu))
 
     cmd.extend(["-c:a", "aac", "-b:a", "192k", "-y", output_file])
 
@@ -709,7 +726,9 @@ def process(
     language: str = typer.Option(
         "zh,en", help="Language hints for transcription (comma-separated)"
     ),
-    gpu: bool = typer.Option(True, help="Use GPU acceleration for subtitle burning"),
+    gpu: bool = typer.Option(
+        True, help="Use AMD GPU acceleration for subtitle burning"
+    ),
 ):
     """Run full processing pipeline with optional subtitle generation."""
     logger.info("Starting full video processing pipeline...")
@@ -835,7 +854,7 @@ def add_subtitles(
         None, help="Subtitle file (default: same path as video, .srt extension)"
     ),
     output_video: Optional[str] = typer.Option(None, help="Output video filename"),
-    gpu: bool = typer.Option(True, help="Use GPU acceleration"),
+    gpu: bool = typer.Option(True, help="Use AMD GPU acceleration"),
 ):
     """Add hardcoded subtitles to video with Source Han font."""
     if not os.path.exists(input_video):
@@ -859,28 +878,13 @@ def add_subtitles(
     logger.info(f"Subtitle file: {subtitle_file}")
     logger.info(f"Output video: {output_video}")
 
-    style = (
-        "FontName=Source Han Sans SC,"
-        "FontSize=20,"
-        "PrimaryColour=&HFFFFFF,"
-        "OutlineColour=&H000000,"
-        "Outline=2,"
-        "Shadow=1,"
-        "Bold=1,"
-        "MarginV=30,"
-        "Alignment=2"
-    )
+    vf_filter = build_subtitle_filter(subtitle_file, gpu)
 
-    vf_filter = f"subtitles={subtitle_file}:force_style='{''.join(style)}'"
+    cmd = ["ffmpeg"]
+    cmd.extend(gpu_acceleration_args(gpu))
+    cmd.extend(["-i", input_video, "-vf", vf_filter])
 
-    cmd = ["ffmpeg", "-i", input_video, "-vf", vf_filter]
-
-    if gpu:
-        # Use fastest NVENC preset for speed
-        cmd.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "28"])
-    else:
-        # Use ultrafast preset for CPU encoding
-        cmd.extend(["-c:v", "libx264", "-preset", "ultrafast", "-crf", "28"])
+    cmd.extend(video_encoder_args(gpu))
 
     cmd.extend(["-c:a", "copy", "-y", output_video])
 
