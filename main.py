@@ -45,6 +45,8 @@ def build_subtitle_filter(subtitle_file: str, gpu: bool) -> str:
 
 def gpu_acceleration_args(gpu: bool) -> list[str]:
     """Return ffmpeg input/global args for AMD GPU acceleration."""
+    if gpu:
+        return ["-vaapi_device", "/dev/dri/renderD128"]
     return []
 
 
