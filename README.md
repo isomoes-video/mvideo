@@ -1,165 +1,99 @@
-# mvideo
+# mvideo agent prompt
 
-A command-line video processing tool for preparing recordings for publishing. It wraps FFmpeg workflows for trimming, audio normalization, background music mixing, subtitle transcription, and hardcoded subtitle rendering.
+You are operating `mvideo`, an FFmpeg-based video publishing CLI. Use the
+existing commands in `main.py` to transform recordings. Do not replace the CLI
+with ad hoc FFmpeg commands or new scripts.
 
-## Features
+## Mission
 
-- Trim videos by start/end offsets.
-- Analyze and normalize audio volume.
-- Mix a video with looped background music.
-- Transcribe video audio to SRT subtitles with DashScope ASR.
-- Burn SRT subtitles into video with FFmpeg.
-- Run a full publishing pipeline: trim, normalize, mix, generate subtitles, and optionally burn subtitles.
+- Convert the user's requested video-processing outcome into the smallest safe
+  sequence of existing `mvideo` commands.
+- Preserve source files unless the user explicitly requests an in-place change.
+- Validate inputs before paid, destructive, or long-running work.
+- Verify every requested artifact before reporting success.
+- Keep credentials out of commands, logs, output files, and responses.
 
-## Requirements
+## Task routing
 
-- Python 3.12+
-- `uv`
-- FFmpeg and FFprobe available in `PATH`
-- Optional NVIDIA encoder support for GPU subtitle burning (`h264_nvenc`)
-- DashScope and Alibaba Cloud OSS credentials for transcription commands
+Read the matching stage prompt before doing work:
 
-## Setup
+- `prompts/audio-prompt.md`: analyze audio, trim video, normalize audio, or mix
+  background music.
+- `prompts/transcribe-prompt.md`: generate an editable SRT with DashScope ASR.
+- `prompts/subtitles-prompt.md`: burn an approved SRT into a video.
+- `prompts/process-prompt.md`: run the complete publishing pipeline with
+  generated and burned subtitles.
 
-```bash
-make setup
-```
+Use `prompts/README.md` when the request spans multiple stages or the correct
+stage is unclear. Treat the selected stage prompt as the detailed execution
+contract and this file as the global contract.
 
-Or directly:
+## Environment contract
 
-```bash
-uv sync
-```
+- Python 3.12 or newer and `uv` are required.
+- `ffmpeg` and `ffprobe` must be available in `PATH`.
+- Install project dependencies with `uv sync` when they are unavailable.
+- GPU subtitle encoding uses AMD VAAPI through `h264_vaapi` and
+  `/dev/dri/renderD128`.
+- Use CPU encoding with `--no-gpu` when AMD VAAPI is unavailable.
+- Transcription requires these environment variables:
+  `DASHSCOPE_API_KEY`, `OSS_ACCESS_KEY_ID`, `OSS_ACCESS_KEY_SECRET`,
+  `OSS_ENDPOINT`, and `OSS_BUCKET_NAME`.
+- `OSS_REGION` is optional and defaults to `cn-hangzhou`.
+- Check only whether credentials exist. Never reveal their values.
 
-## Usage
+## Global safety rules
 
-Show CLI help:
+- Resolve all user-provided paths and confirm required inputs exist.
+- Never guess an input, subtitle, music, trim point, language, or destination.
+- Ensure input and output video paths are different.
+- Do not overwrite an unrelated existing file without explicit approval.
+- The `trim` command modifies its input in place. Work on a copy unless the user
+  explicitly approves modifying the source.
+- Validate that trim values are non-negative and their sum is shorter than the
+  input duration.
+- If requested background music is missing, stop instead of silently omitting
+  it.
+- Do not repeatedly retry paid transcription requests before diagnosing the
+  failure.
+- Do not expose secrets when reporting command failures.
 
-```bash
-make run args="--help"
-```
+## Execution protocol
 
-Run a command:
+1. Determine the requested final artifact and select the matching prompt.
+2. Inspect the relevant input files and probe video metadata when needed.
+3. Check dependencies, credentials, output conflicts, and GPU capability before
+   starting work.
+4. State any missing decision only when it cannot be safely inferred from the
+   request or selected prompt.
+5. Run commands through `uv run main.py` with separate, properly quoted
+   arguments.
+6. Follow the operation order defined by the selected stage prompt.
+7. Verify outputs immediately after execution.
+8. Remove only temporary files created by the current operation.
+9. Report the resolved output paths and effective settings concisely.
 
-```bash
-uv run main.py <command> [arguments]
-```
+## Verification contract
 
-## Commands
+Before reporting completion:
 
-### Analyze Audio
+- Confirm every requested output exists and is non-empty.
+- Use `ffprobe` to confirm generated videos are readable and contain the
+  expected video and audio streams.
+- Confirm generated SRT files are UTF-8, non-empty, sequentially numbered, and
+  contain parseable `HH:MM:SS,mmm --> HH:MM:SS,mmm` timestamps.
+- Confirm source files remain unchanged unless an in-place operation was
+  explicitly approved.
+- Confirm no operation-specific `temp_*` files remain after a successful run.
+- Do not claim success when any requested artifact fails verification.
 
-Print detected mean and max volume for a video.
+## Failure contract
 
-```bash
-uv run main.py analyze input.mp4
-```
+When an operation fails:
 
-### Normalize Audio
-
-Normalize audio to a target dB level. The default target is `-16.0` dB.
-
-```bash
-uv run main.py normalize input.mp4 output.mp4 --target-volume -16
-```
-
-### Trim Video
-
-Trim from the start and/or end. Time values can be seconds or `HH:MM:SS`.
-
-This command modifies the input file in place.
-
-```bash
-uv run main.py trim input.mp4 00:00:05 10
-```
-
-### Mix Background Music
-
-Loop background music to the video duration and mix both audio tracks.
-
-```bash
-uv run main.py mix input.mp4 music.mp3 output.mp4 --music-volume 0.3 --video-volume 1.0
-```
-
-### Transcribe To SRT
-
-Extract audio from a video, upload it temporarily to OSS, transcribe it with DashScope ASR, and save an SRT file.
-
-```bash
-uv run main.py transcribe input.mp4 --output-subtitle input.srt --language zh,en
-```
-
-By default, the extracted temporary audio file is removed. Keep it with:
-
-```bash
-uv run main.py transcribe input.mp4 --keep-audio
-```
-
-### Add Hardcoded Subtitles
-
-Burn an existing SRT file into a video. If no subtitle file is provided, the tool uses the same base path as the video with a `.srt` extension.
-
-```bash
-uv run main.py add-subtitles input.mp4 input.srt --output-video output.mp4
-```
-
-Use CPU encoding instead of GPU encoding:
-
-```bash
-uv run main.py add-subtitles input.mp4 input.srt --no-gpu
-```
-
-### Full Process Pipeline
-
-Run the full pipeline: optional trim, audio normalization, optional background music mix, optional SRT generation, and optional subtitle burning.
-
-```bash
-uv run main.py process input.mp4 output.mp4 \
-  --start-trim 5 \
-  --end-trim 10 \
-  --background-music music.mp3 \
-  --target-volume -16 \
-  --music-volume 0.3 \
-  --srt \
-  --burn-srt \
-  --language zh,en
-```
-
-When `--burn-srt` is enabled, subtitle generation is automatically enabled. Trimming and subtitle burning are combined in one FFmpeg pass to avoid keyframe alignment issues.
-
-## Transcription Configuration
-
-Transcription requires DashScope and Alibaba Cloud OSS environment variables:
-
-```bash
-export DASHSCOPE_API_KEY="your-dashscope-api-key"
-export OSS_ACCESS_KEY_ID="your-oss-access-key-id"
-export OSS_ACCESS_KEY_SECRET="your-oss-access-key-secret"
-export OSS_ENDPOINT="https://oss-cn-hangzhou.aliyuncs.com"
-export OSS_BUCKET_NAME="your-bucket-name"
-export OSS_REGION="cn-hangzhou"
-```
-
-`OSS_REGION` defaults to `cn-hangzhou` if it is not set.
-
-The tool uploads extracted audio to `mvideo/temp/...` in your OSS bucket, sends the public URL to DashScope ASR, and deletes the temporary OSS object after transcription completes.
-
-## Development
-
-Install dependencies:
-
-```bash
-make setup
-```
-
-Run the CLI:
-
-```bash
-make run args="analyze input.mp4"
-```
-
-Clean local caches and the virtual environment:
-
-```bash
-make clean
-```
+- Identify the failed stage and the relevant non-secret options.
+- Include concise actionable error output.
+- Preserve source files and avoid deleting evidence needed for diagnosis.
+- Distinguish a missing dependency, missing credential, invalid input, encoding
+  failure, transcription service failure, and artifact verification failure.
+- Recommend the smallest corrective action, then retry only when it is safe.
