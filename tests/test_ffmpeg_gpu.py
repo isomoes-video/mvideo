@@ -1,13 +1,15 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from main import build_subtitle_filter, gpu_acceleration_args, video_encoder_args
+from mvideo.ffmpeg import (
+    build_subtitle_filter,
+    gpu_acceleration_args,
+    video_encoder_args,
+)
 
 
 def test_gpu_acceleration_uses_default_vaapi_device() -> None:
-    assert gpu_acceleration_args(gpu=True) == []
+    assert gpu_acceleration_args(gpu=True) == [
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+    ]
 
 
 def test_cpu_acceleration_uses_no_gpu_device() -> None:
