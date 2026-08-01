@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-08-01
+
 ### Added
 
 - Agent-native prompts for audio processing, transcription, subtitles, and the complete publishing workflow. (@isomoes)
@@ -13,7 +15,9 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Changed
 
+- The CLI is organized into focused application, FFmpeg, pipeline, subtitle, and transcription modules. (@isomoes)
 - CLI documentation now describes the current video publishing workflow and its safety requirements. (@isomoes)
+- Release instructions now live with the agent prompts and push the branch and tag atomically. (@isomoes)
 
 ### Fixed
 

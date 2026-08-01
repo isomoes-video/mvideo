@@ -10,6 +10,7 @@ options for the current job.
 - `transcribe-prompt.md`: generate an SRT file with DashScope ASR.
 - `subtitles-prompt.md`: burn an existing SRT file into a video.
 - `process-prompt.md`: run the complete publishing pipeline.
+- `release.md`: prepare, tag, and push a project release.
 
 ## Recommended workflow
 
@@ -17,6 +18,8 @@ options for the current job.
 2. Use `transcribe-prompt.md` when you need an editable subtitle file.
 3. Review and correct the SRT before using `subtitles-prompt.md`.
 4. Use `process-prompt.md` when all desired operations should run together.
+5. Use `release.md` when publishing a versioned project release.
 
-All prompts instruct the agent to use the existing Typer CLI in `main.py`. They
-do not authorize replacing the CLI with ad hoc FFmpeg commands or new scripts.
+The video workflow prompts instruct the agent to use the existing Typer CLI in
+`main.py`; they do not authorize replacing the CLI with ad hoc FFmpeg commands
+or new scripts.

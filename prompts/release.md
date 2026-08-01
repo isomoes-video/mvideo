@@ -31,13 +31,15 @@ Do the following in order:
 
 5. Commit the release changes with a release-style commit message.
 
-6. Create a git tag named `v<version>`.
+6. Create an annotated git tag named `v<version>`.
 
-7. Report:
-   - the version prepared
+7. Push the current branch and the release tag to `origin` atomically:
+   - run `git push --atomic origin <current-branch> v<version>`
+
+8. Report:
+   - the version released
    - the commit hash
    - the tag name
    - any verification results
-
-Do not push the commit or tag. The user will handle pushing separately.
+   - the push result
 ```
