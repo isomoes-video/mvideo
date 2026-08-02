@@ -168,6 +168,10 @@ def highlight(
     input_video: str,
     manifest_file: str,
     output_video: str,
+    subtitle_file: str | None = typer.Option(
+        None,
+        help="Burn this SRT and remap it for the prepended highlights",
+    ),
     max_duration: float = typer.Option(
         30.0,
         min=0.1,
@@ -197,6 +201,7 @@ def highlight(
             label=None if no_label else label,
             gpu=gpu,
             overwrite=overwrite,
+            subtitle_file=subtitle_file,
         )
     except (FileNotFoundError, FileExistsError, TypeError, ValueError) as error:
         raise typer.BadParameter(str(error)) from error

@@ -3,6 +3,10 @@
 You are burning an approved SRT subtitle file into a video with the existing
 `mvideo` CLI.
 
+Use this prompt only for a stage-only subtitle job without opening highlights.
+For the complete publishing workflow, use `highlights-prompt.md` to prepend
+highlights and burn subtitles in one render.
+
 ## Goals
 
 - Use the provided SRT file, or the input video's same-base-name `.srt` file.
@@ -15,7 +19,8 @@ You are burning an approved SRT subtitle file into a video with the existing
 
 - The user provides an existing input video.
 - The subtitle path is optional only when `<input-stem>.srt` exists.
-- The output defaults to `<input-stem>_with_subs<input-extension>`.
+- The output defaults to
+  `/home/isomoes/Videos/resource/<input-stem>_with_subs<input-extension>`.
 - GPU mode uses AMD VAAPI and `/dev/dri/renderD128`; it is not NVIDIA NVENC.
 
 ## Running the CLI
@@ -32,7 +37,8 @@ uv run main.py add-subtitles <input-video> <subtitle.srt> \
 
 ## Instructions
 
-1. Confirm that the input video and resolved SRT file exist.
+1. Confirm that the input video and resolved SRT file exist, and ensure
+   `/home/isomoes/Videos/resource` exists for the default output.
 2. Check that the SRT is non-empty and has parseable timestamps before a
    potentially long encode.
 3. Use GPU mode only when `/dev/dri/renderD128` exists and FFmpeg exposes the

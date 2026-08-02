@@ -20,15 +20,20 @@ Read the matching stage prompt before doing work:
 - `prompts/audio-prompt.md`: analyze audio, trim video, normalize audio, or mix
   background music.
 - `prompts/transcribe-prompt.md`: generate an editable SRT with DashScope ASR.
-- `prompts/subtitles-prompt.md`: burn an approved SRT into a video.
-- `prompts/process-prompt.md`: run the complete publishing pipeline with
-  generated and burned subtitles.
-- `prompts/highlights-prompt.md`: select reviewed clips and prepend a Bilibili
-  opening highlight reel of no more than 30 seconds.
+- `prompts/subtitles-prompt.md`: burn an approved SRT when no highlights are
+  needed.
+- `prompts/README.md`: orchestrate the complete publishing workflow, including
+  video processing, subtitles, intro text, and cover generation.
+- `prompts/highlights-prompt.md`: prepend reviewed clips, remap the SRT, and burn
+  subtitles in one final render.
+- `prompts/srt2intro-prompt.md`: turn the completed video's SRT into bilingual
+  titles, a summary, and chapters in a matching `.txt` file.
+- `prompts/intro2figure-prompt.md`: turn that intro `.txt` into a 16:9 cover
+  image with Qwen-Image after video processing is complete.
 
-Use `prompts/README.md` when the request spans multiple stages or the correct
-stage is unclear. Treat the selected stage prompt as the detailed execution
-contract and this file as the global contract.
+Use `prompts/README.md` for every complete publishing job, when a request spans
+multiple stages, or when the correct stage is unclear. Treat the selected stage
+prompt as its detailed execution contract and this file as the global contract.
 
 ## Environment contract
 
@@ -47,7 +52,9 @@ contract and this file as the global contract.
 ## Global safety rules
 
 - Resolve all user-provided paths and confirm required inputs exist.
-- Never guess an input, subtitle, music, trim point, language, or destination.
+- Never guess an input, subtitle, music, trim point, or language. Store generated
+  artifacts under `/home/isomoes/Videos/resource` unless the user provides a
+  different destination.
 - Ensure input and output video paths are different.
 - Do not overwrite an unrelated existing file without explicit approval.
 - The `trim` command modifies its input in place. Work on a copy unless the user
@@ -71,9 +78,12 @@ contract and this file as the global contract.
 5. Run commands through `uv run main.py` with separate, properly quoted
    arguments.
 6. Follow the operation order defined by the selected stage prompt.
-7. Verify outputs immediately after execution.
-8. Remove only temporary files created by the current operation.
-9. Report the resolved output paths and effective settings concisely.
+7. After a complete publishing workflow succeeds, run `srt2intro-prompt.md`
+   against the final SRT, then run `intro2figure-prompt.md` against the generated
+   intro file.
+8. Verify outputs immediately after execution.
+9. Remove only temporary files created by the current operation.
+10. Report the resolved output paths and effective settings concisely.
 
 ## Verification contract
 
@@ -84,6 +94,8 @@ Before reporting completion:
   expected video and audio streams.
 - Confirm generated SRT files are UTF-8, non-empty, sequentially numbered, and
   contain parseable `HH:MM:SS,mmm --> HH:MM:SS,mmm` timestamps.
+- For a complete publishing workflow, confirm the intro `.txt` and cover `.png`
+  exist and are non-empty.
 - Confirm source files remain unchanged unless an in-place operation was
   explicitly approved.
 - Confirm no operation-specific `temp_*` files remain after a successful run.

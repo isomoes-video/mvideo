@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
 
 from mvideo.ffmpeg import create_highlight_video_func, get_video_duration
+from mvideo.subtitles import format_srt_timestamp, parse_srt_timestamp
 
 MAX_HIGHLIGHT_DURATION = 30.0
 
@@ -18,6 +20,56 @@ class HighlightClip:
     @property
     def duration(self) -> float:
         return self.end - self.start
+
+
+def remap_srt_for_highlights(content: str, clips: list[HighlightClip]) -> str:
+    """Prepend subtitle excerpts and offset the complete video's subtitles."""
+    entries = []
+    for block in content.strip().split("\n\n"):
+        lines = block.strip().splitlines()
+        if len(lines) < 3 or " --> " not in lines[1]:
+            continue
+        start_text, end_text = lines[1].split(" --> ", 1)
+        entries.append(
+            (
+                parse_srt_timestamp(start_text.strip()),
+                parse_srt_timestamp(end_text.strip()),
+                "\n".join(lines[2:]),
+            )
+        )
+
+    remapped = []
+    reel_position = 0.0
+    for clip in clips:
+        for start, end, text in entries:
+            clipped_start = max(start, clip.start)
+            clipped_end = min(end, clip.end)
+            if clipped_end > clipped_start:
+                remapped.append(
+                    (
+                        reel_position + clipped_start - clip.start,
+                        reel_position + clipped_end - clip.start,
+                        text,
+                    )
+                )
+        reel_position += clip.duration
+
+    remapped.extend(
+        (start + reel_position, end + reel_position, text)
+        for start, end, text in entries
+    )
+
+    lines = []
+    for index, (start, end, text) in enumerate(remapped, 1):
+        lines.extend(
+            [
+                str(index),
+                f"{format_srt_timestamp(start)} --> {format_srt_timestamp(end)}",
+                text,
+                "",
+            ]
+        )
+    return "\n".join(lines)
 
 
 def _number(value: object, field: str, index: int) -> float:
@@ -86,6 +138,7 @@ def create_highlight_video(
     label: str | None = "精彩预告",
     gpu: bool = True,
     overwrite: bool = False,
+    subtitle_file: str | Path | None = None,
 ) -> None:
     """Validate a highlight job and render it with FFmpeg."""
     input_path = Path(input_video)
@@ -100,15 +153,49 @@ def create_highlight_video(
     if output_path.exists() and not overwrite:
         raise FileExistsError(f"Output video already exists: {output_path}")
 
+    subtitle_path = Path(subtitle_file) if subtitle_file is not None else None
+    if subtitle_path is not None and not subtitle_path.is_file():
+        raise FileNotFoundError(f"Subtitle file not found: {subtitle_path}")
+
     clips = load_highlight_clips(
         manifest_path,
         video_duration=get_video_duration(str(input_path)),
         max_duration=max_duration,
     )
-    create_highlight_video_func(
-        str(input_path),
+    if subtitle_path is None:
+        create_highlight_video_func(
+            str(input_path),
+            clips,
+            str(output_path),
+            label,
+            gpu,
+        )
+        return
+
+    remapped_srt = remap_srt_for_highlights(
+        subtitle_path.read_text(encoding="utf-8"),
         clips,
-        str(output_path),
-        label,
-        gpu,
     )
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".srt",
+        prefix="mvideo_highlights_",
+        dir=subtitle_path.parent,
+        encoding="utf-8",
+        delete=False,
+    ) as file:
+        file.write(remapped_srt)
+        temporary_subtitle = Path(file.name)
+
+    try:
+        create_highlight_video_func(
+            str(input_path),
+            clips,
+            str(output_path),
+            label,
+            gpu,
+            str(temporary_subtitle),
+        )
+        subtitle_path.write_text(remapped_srt, encoding="utf-8")
+    finally:
+        temporary_subtitle.unlink(missing_ok=True)

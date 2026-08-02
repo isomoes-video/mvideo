@@ -6,7 +6,8 @@ existing `mvideo` CLI.
 ## Goals
 
 - Inspect the input before changing it.
-- Perform only the requested trim, normalization, or music-mixing operations.
+- Inspect the recording and choose appropriate trim, normalization, and
+  music-mixing settings unless the user provides explicit settings.
 - Keep the source file unchanged unless in-place trimming is explicitly
   requested.
 - Produce a clearly named output video and verify it after processing.
@@ -14,10 +15,17 @@ existing `mvideo` CLI.
 ## Input contract
 
 - The user provides an existing input video path.
-- The user may provide start and end trim amounts as seconds or `HH:MM:SS`.
-- The user may provide a background music path and volume levels.
+- The agent may choose conservative start/end trim points after inspecting the
+  recording. Preserve meaningful speech and visual context.
+- Background music defaults to the library at `/home/isomoes/Videos/bgm`.
+  Inspect its files and choose a track that fits the video's subject, pace, and
+  mood. The user may override the track or volume.
+- Generated videos default to `/home/isomoes/Videos/resource`. Create the
+  directory when needed and use a descriptive stage suffix such as
+  `<video-name>_trimmed.mp4`, `<video-name>_normalized.mp4`, or
+  `<video-name>_prepared.mp4`.
 - The user may provide a target audio volume; otherwise use `-16.0` dB.
-- Do not guess file paths, trim points, or music choices.
+- Do not invent paths or use music outside the library without approval.
 
 ## Safety rules
 
@@ -51,16 +59,24 @@ uv run main.py trim <working-video> <start-trim> <end-trim>
 ## Instructions
 
 1. Confirm that every requested input file exists.
-2. Run `analyze` when the user asks for volume analysis or when a target needs
-   to be selected from measured levels.
-3. Apply operations in this order when more than one is requested: trim,
+2. Inspect the beginning and end of the recording and choose conservative trim
+   points for dead air, setup, or trailing silence. Use `0` when no trim is
+   justified.
+3. Run `analyze` and normalize speech to `-16.0` dB unless the user requests a
+   different target.
+4. Inspect `/home/isomoes/Videos/bgm`, choose one suitable track, and use a
+   conservative default music volume of `0.3`. If no track fits, continue
+   without music and report why rather than choosing an unrelated track.
+5. Apply operations in this order: trim,
    normalize, then mix.
-4. Use a new output path for normalization and mixing.
-5. Report the exact output path and the operations and values applied.
-6. Verify the output exists, is non-empty, and can be probed by `ffprobe`.
+6. Use a new output path under `/home/isomoes/Videos/resource` for each
+   normalization or mixing artifact unless the user provides another directory.
+7. Report the exact output path, selected music, and all applied values.
+8. Verify the output exists, is non-empty, and can be probed by `ffprobe`.
 
 ## Output contract
 
-- A playable video at the requested output path.
+- A playable video under `/home/isomoes/Videos/resource` by default, or at the
+  user's explicit output path.
 - No temporary `temp_*` files left behind after a successful run.
 - A concise final report with source, output, and applied settings.

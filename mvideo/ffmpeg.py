@@ -62,8 +62,9 @@ def build_highlight_command(
     output_file: str,
     label: str | None = None,
     gpu: bool = True,
+    subtitle_file: str | None = None,
 ) -> list[str]:
-    """Build an FFmpeg command that prepends clips to the complete video."""
+    """Build a command that prepends clips and optionally burns subtitles."""
     stream_count = len(clips) + 1
     command = ["ffmpeg"]
     command.extend(gpu_acceleration_args(gpu))
@@ -102,7 +103,10 @@ def build_highlight_command(
         ]
     )
     concat_inputs = "".join(f"[v{index}][a{index}]" for index in range(stream_count))
-    if gpu:
+    if subtitle_file:
+        filters.append(f"{concat_inputs}concat=n={stream_count}:v=1:a=1[vconcat][aout]")
+        filters.append(f"[vconcat]{build_subtitle_filter(subtitle_file, gpu)}[vout]")
+    elif gpu:
         filters.extend(
             [
                 f"{concat_inputs}concat=n={stream_count}:v=1:a=1[vconcat][aout]",
@@ -127,11 +131,19 @@ def create_highlight_video_func(
     output_file: str,
     label: str | None = None,
     gpu: bool = True,
+    subtitle_file: str | None = None,
 ) -> None:
-    """Prepend selected clips to a complete video."""
+    """Prepend clips and optionally burn subtitles in one render."""
     logger.info(f"Creating opening highlight reel with {len(clips)} clips")
     subprocess.run(
-        build_highlight_command(input_file, clips, output_file, label, gpu),
+        build_highlight_command(
+            input_file,
+            clips,
+            output_file,
+            label,
+            gpu,
+            subtitle_file,
+        ),
         check=True,
     )
     logger.success(f"Highlight video created: {output_file}")

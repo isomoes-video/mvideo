@@ -7,13 +7,14 @@ You are generating an editable SRT subtitle file from a video with the existing
 
 - Extract and transcribe the video's speech with DashScope ASR.
 - Preserve subtitle timing and ordering returned by the transcription service.
-- Write one SRT file next to the video or at the requested path.
+- Write one SRT file under `/home/isomoes/Videos/resource` by default.
 - Remove temporary extracted audio unless the user asks to keep it.
 
 ## Input contract
 
 - The user provides an existing input video path.
-- The output defaults to the input path with its extension replaced by `.srt`.
+- The output defaults to
+  `/home/isomoes/Videos/resource/<input-video-stem>.srt`.
 - Language hints default to `zh,en`; pass a comma-separated list when the user
   specifies different languages.
 - `DASHSCOPE_API_KEY`, `OSS_ACCESS_KEY_ID`, `OSS_ACCESS_KEY_SECRET`,
@@ -33,7 +34,8 @@ debugging or reuse.
 
 ## Instructions
 
-1. Confirm the input video exists and the output path is appropriate.
+1. Confirm the input video exists, ensure `/home/isomoes/Videos/resource`
+   exists, and use its default SRT path unless the user supplied another path.
 2. Check only whether required environment variables are present. Never print
    their values or place secrets in commands, logs, prompts, or files.
 3. Run the existing `transcribe` command; do not call DashScope or OSS with an
