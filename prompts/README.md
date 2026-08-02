@@ -56,6 +56,8 @@ complete publishing job, follow the end-to-end instructions below.
 - Feed only a verified output artifact into the next stage.
 - Stop at the failed stage. Do not continue with a missing, empty, invalid, or
   unreviewed artifact.
+- Select and validate opening highlights autonomously. Do not pause for creator
+  approval of the manifest unless the user explicitly asks to review it.
 - Skip optional operations only when the user did not request them; do not
   silently omit a requested stage.
 
@@ -71,15 +73,20 @@ complete publishing job, follow the end-to-end instructions below.
    verify the prepared video before continuing.
 3. **Transcribe.** Follow `transcribe-prompt.md` with the prepared video. Verify
    the generated SRT's encoding, numbering, and timestamps.
-4. **Review subtitles.** Read the complete SRT and correct transcription errors
-   without changing valid timing unnecessarily. The SRT must be approved before
-   it is burned or used to select highlights.
+4. **Review and correct subtitles.** Read the complete SRT and automatically fix
+   high-confidence transcription errors, especially product names, project
+   names, versions, commands, APIs, and English technical terms. Cross-check
+   visible UI text, project documentation, and closely related existing
+   artifacts when available. Preserve valid cue numbering, ordering, and timing;
+   leave uncertain wording unchanged rather than guessing. Validate the
+   corrected SRT before it is burned or used to select highlights.
 5. **Render subtitles and highlights once.** Follow `highlights-prompt.md` with
-   the prepared video and approved SRT. After manifest review, prepend the
-   highlights and burn subtitles in one FFmpeg render. This stage rewrites the
-   original SRT so it contains subtitle entries for the opening clips and shifts
-   the complete video's entries by the total highlight duration. Verify both
-   the final video and remapped SRT.
+   the prepared video and corrected SRT. After internally validating the
+   manifest, proceed without requesting approval, prepend the highlights, and
+   burn subtitles in one FFmpeg render. This stage rewrites the original SRT so
+   it contains subtitle entries for the opening clips and shifts the complete
+   video's entries by the total highlight duration. Verify both the final video
+   and remapped SRT.
 6. **Generate the intro.** After the combined render succeeds, follow
    `srt2intro-prompt.md` with the remapped SRT. Verify the matching `.txt` file
    contains Chinese and English titles, a summary, and valid chapter entries.

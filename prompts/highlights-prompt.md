@@ -90,8 +90,9 @@ creator's approval when the output already exists.
 2. Probe the prepared video duration and inspect the complete SRT before choosing
    clips.
 3. Create the manifest according to the selection and manifest contracts.
-4. Present the selected timestamps, total duration, and reasons for creator
-   review before starting the potentially long encode.
+4. Validate the selected timestamps, total duration, reasons, non-overlap, and
+   visual usability. Proceed without requesting creator approval unless the user
+   explicitly asks to review the selection.
 5. Check output conflicts and GPU capability, then run `mvideo highlight` once
    with `--subtitle-file`.
 6. Verify that the output is readable, contains video and audio streams, starts
@@ -116,7 +117,7 @@ creator's approval when the output already exists.
 ## Failure behavior
 
 - Stop when timestamps overlap, exceed video duration, or exceed the configured
-  reel limit; do not silently modify the creator-approved selection.
+  reel limit; correct the manifest and validate it again before encoding.
 - Stop when the prepared video and SRT timelines do not match.
 - Preserve the manifest when encoding fails so the job can be diagnosed and
   retried without repeating selection work.

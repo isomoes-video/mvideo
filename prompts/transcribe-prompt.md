@@ -43,10 +43,17 @@ debugging or reuse.
 4. If credentials are missing, stop and report the missing variable names.
 5. After completion, validate that the SRT is non-empty, numbered in sequence,
    and contains parseable `HH:MM:SS,mmm --> HH:MM:SS,mmm` timestamp lines.
-6. Report the absolute subtitle path and suggest human review before burning.
+6. Read the complete SRT and automatically correct high-confidence ASR errors,
+   especially product names, project names, versions, commands, APIs, and
+   English technical terms. Use visible UI text, project documentation, and
+   closely related existing subtitles or introductions as evidence when
+   available. Preserve valid cue numbering, ordering, and timestamps, and leave
+   uncertain wording unchanged rather than guessing.
+7. Revalidate the corrected SRT, then report its absolute path and the types of
+   terminology corrected.
 
 ## Output contract
 
-- One UTF-8 SRT file at the requested path.
+- One reviewed and terminology-corrected UTF-8 SRT file at the requested path.
 - No extracted temporary audio unless `--keep-audio` was requested.
 - Temporary OSS content is deleted by the existing CLI after transcription.
