@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-08-02
+
+### Added
+
+- Opening highlight reels with reviewed clip selection, subtitle remapping, and a single final render. (@isomoes)
+- Post-processing stages for bilingual titles, summaries, chapters, and cover images. (@isomoes)
+
+### Changed
+
+- Publishing now uses a unified staged workflow with automated highlight and subtitle review. (@isomoes)
+
 ## [0.1.1] - 2026-08-01
 
 ### Added
