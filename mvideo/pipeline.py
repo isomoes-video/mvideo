@@ -120,6 +120,8 @@ def process_video(
     elif burn_srt:
         logger.warning("No SRT file available, skipping subtitle burning")
         shutil.copy(temp_mixed, output_video)
+    else:
+        shutil.copy(temp_mixed, output_video)
 
     for temp_file in [temp_trimmed, temp_normalized, temp_mixed]:
         if os.path.exists(temp_file):

@@ -12,6 +12,7 @@ from mvideo.ffmpeg import (
     normalize_audio_func,
     trim_video_func,
 )
+from mvideo.highlights import create_highlight_video
 from mvideo.pipeline import process_video, transcribe_video
 
 app = typer.Typer(help="Video Processor for OBS Recordings and Subtitles")
@@ -160,3 +161,42 @@ def transcribe(
     logger.info(f"Input video: {input_video}")
     logger.info(f"Output subtitle: {output_subtitle}")
     transcribe_video(input_video, output_subtitle, language, keep_audio)
+
+
+@app.command()
+def highlight(
+    input_video: str,
+    manifest_file: str,
+    output_video: str,
+    max_duration: float = typer.Option(
+        30.0,
+        min=0.1,
+        max=30.0,
+        help="Maximum total highlight duration in seconds",
+    ),
+    label: str = typer.Option("精彩预告", help="Label shown over highlight clips"),
+    no_label: bool = typer.Option(False, "--no-label", help="Do not show a label"),
+    gpu: bool = typer.Option(
+        True,
+        "--gpu/--no-gpu",
+        help="Use AMD GPU acceleration",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Replace an existing output video",
+    ),
+) -> None:
+    """Prepend selected clips from a JSON manifest to a complete video."""
+    try:
+        create_highlight_video(
+            input_video,
+            manifest_file,
+            output_video,
+            max_duration=max_duration,
+            label=None if no_label else label,
+            gpu=gpu,
+            overwrite=overwrite,
+        )
+    except (FileNotFoundError, FileExistsError, TypeError, ValueError) as error:
+        raise typer.BadParameter(str(error)) from error

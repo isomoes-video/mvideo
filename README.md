@@ -23,6 +23,8 @@ Read the matching stage prompt before doing work:
 - `prompts/subtitles-prompt.md`: burn an approved SRT into a video.
 - `prompts/process-prompt.md`: run the complete publishing pipeline with
   generated and burned subtitles.
+- `prompts/highlights-prompt.md`: select reviewed clips and prepend a Bilibili
+  opening highlight reel of no more than 30 seconds.
 
 Use `prompts/README.md` when the request spans multiple stages or the correct
 stage is unclear. Treat the selected stage prompt as the detailed execution

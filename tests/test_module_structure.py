@@ -16,6 +16,7 @@ def test_cli_keeps_existing_commands() -> None:
         "process",
         "add-subtitles",
         "transcribe",
+        "highlight",
     ):
         assert command in result.stdout
 

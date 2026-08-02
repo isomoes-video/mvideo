@@ -1,11 +1,18 @@
+from __future__ import annotations
+
 import os
 import random
 import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from loguru import logger
+
+if TYPE_CHECKING:
+    from mvideo.highlights import HighlightClip
 
 
 def build_subtitle_filter(subtitle_file: str, gpu: bool) -> str:
@@ -39,6 +46,95 @@ def video_encoder_args(gpu: bool) -> list[str]:
     if gpu:
         return ["-c:v", "h264_vaapi", "-qp", "28"]
     return ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "28"]
+
+
+def _filter_number(value: float) -> str:
+    return f"{value:g}"
+
+
+def _escape_drawtext(text: str) -> str:
+    return text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+
+
+def build_highlight_command(
+    input_file: str,
+    clips: Sequence[HighlightClip],
+    output_file: str,
+    label: str | None = None,
+    gpu: bool = True,
+) -> list[str]:
+    """Build an FFmpeg command that prepends clips to the complete video."""
+    stream_count = len(clips) + 1
+    command = ["ffmpeg"]
+    command.extend(gpu_acceleration_args(gpu))
+    for clip in clips:
+        command.extend(
+            [
+                "-ss",
+                _filter_number(clip.start),
+                "-t",
+                _filter_number(clip.duration),
+                "-i",
+                input_file,
+            ]
+        )
+    command.extend(["-i", input_file])
+
+    filters = []
+
+    for index, clip in enumerate(clips):
+        video_filter = f"[{index}:v]setpts=PTS-STARTPTS"
+        if label:
+            escaped_label = _escape_drawtext(label)
+            video_filter += (
+                f",drawtext=text='{escaped_label}':expansion=none:"
+                "font='Microsoft YaHei':x=48:y=48:fontcolor=white:fontsize=72:"
+                "box=1:boxcolor=0xFB7299@0.92:boxborderw=18"
+            )
+        filters.append(f"{video_filter}[v{index}]")
+        filters.append(f"[{index}:a]asetpts=PTS-STARTPTS[a{index}]")
+
+    full_index = len(clips)
+    filters.extend(
+        [
+            f"[{full_index}:v]setpts=PTS-STARTPTS[v{full_index}]",
+            f"[{full_index}:a]asetpts=PTS-STARTPTS[a{full_index}]",
+        ]
+    )
+    concat_inputs = "".join(f"[v{index}][a{index}]" for index in range(stream_count))
+    if gpu:
+        filters.extend(
+            [
+                f"{concat_inputs}concat=n={stream_count}:v=1:a=1[vconcat][aout]",
+                "[vconcat]format=nv12,hwupload[vout]",
+            ]
+        )
+    else:
+        filters.append(f"{concat_inputs}concat=n={stream_count}:v=1:a=1[vout][aout]")
+
+    command.extend(["-filter_complex", ";".join(filters)])
+    command.extend(["-map", "[vout]", "-map", "[aout]"])
+    command.extend(video_encoder_args(gpu))
+    command.extend(
+        ["-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-y", output_file]
+    )
+    return command
+
+
+def create_highlight_video_func(
+    input_file: str,
+    clips: Sequence[HighlightClip],
+    output_file: str,
+    label: str | None = None,
+    gpu: bool = True,
+) -> None:
+    """Prepend selected clips to a complete video."""
+    logger.info(f"Creating opening highlight reel with {len(clips)} clips")
+    subprocess.run(
+        build_highlight_command(input_file, clips, output_file, label, gpu),
+        check=True,
+    )
+    logger.success(f"Highlight video created: {output_file}")
 
 
 def check_dependencies() -> None:
