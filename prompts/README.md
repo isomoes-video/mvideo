@@ -45,7 +45,8 @@ complete publishing job, follow the end-to-end instructions below.
 - Transcription requires the DashScope and OSS environment variables documented
   in the project `README.md`.
 - Plan a distinct filename under the resource directory for every intermediate
-  and final video. Each stage must preserve the source artifact it receives.
+  and final video. Each stage must preserve the source artifact it receives
+  until all requested final artifacts pass verification.
 
 ## Orchestration rules
 
@@ -93,7 +94,12 @@ complete publishing job, follow the end-to-end instructions below.
 7. **Generate the cover.** Follow `intro2figure-prompt.md` with the verified
    intro. Download the returned image immediately and verify the matching `.png`
    is non-empty and readable.
-8. **Report completion.** Report the absolute final video, remapped SRT, intro,
+8. **Clean intermediate videos.** After every requested final artifact passes
+   verification, delete the planned intermediate video files created by this
+   job, including trimmed, normalized, and prepared `.mp4` files. Delete only
+   the exact planned paths, never a broad wildcard. Preserve intermediates when
+   any stage fails so they remain available for diagnosis.
+9. **Report completion.** Report the absolute final video, remapped SRT, intro,
    cover, and highlight manifest paths, plus the effective settings used by each
    stage.
 
@@ -111,7 +117,9 @@ complete publishing job, follow the end-to-end instructions below.
 
 ## Output contract
 
-- Prepared video: `/home/isomoes/Videos/resource/<video-name>_prepared.mp4`.
+- Intermediate prepared video:
+  `/home/isomoes/Videos/resource/<video-name>_prepared.mp4`; retain it during
+  processing and on failure, but remove it after a successful complete workflow.
 - Final video: `/home/isomoes/Videos/resource/<video-name>_final.mp4`.
 - Generated subtitles: `/home/isomoes/Videos/resource/<video-name>.srt`.
 - Highlight manifest:
@@ -119,8 +127,11 @@ complete publishing job, follow the end-to-end instructions below.
 - Generated intro: `/home/isomoes/Videos/resource/<video-name>.txt`.
 - Generated cover: `/home/isomoes/Videos/resource/<video-name>.png`.
 - Use explicit user paths instead of these defaults when provided.
-- No `temp_trimmed_*`, `temp_normalized_*`, `temp_audio_*`, or `temp_mixed_*`
-  files left after a successful run.
+- No intermediate `.mp4` files created by the job, including descriptive
+  `_trimmed`, `_normalized`, and `_prepared` artifacts or `temp_trimmed_*`,
+  `temp_normalized_*`, and `temp_mixed_*` files, remain after a successful
+  complete workflow. No `temp_audio_*` file remains either. Stage-only jobs
+  retain their requested output.
 - The source video and source music remain unchanged. The approved SRT is
   intentionally rewritten to match the prepended highlight timeline.
 
